@@ -12,13 +12,58 @@ const init = async () => {
     host: "localhost",
     routes: {
       files: {
-        relativeTo: path.join(__dirname, "public"), // default folder public untuk assets
+        relativeTo: path.join(__dirname, "public"),
       },
     },
   });
 
   await server.register([Inert, Cookie]);
 
+  // Route publik dulu (tanpa autentikasi)
+  server.route([
+    {
+      method: "GET",
+      path: "/assets/{param*}",
+      options: { auth: false },
+      handler: {
+        directory: {
+          path: ".",
+          listing: false,
+          index: false,
+        },
+      },
+    },
+    {
+      method: "GET",
+      path: "/uploads/{param*}",
+      options: { auth: false },
+      handler: {
+        directory: {
+          path: "uploads",
+          listing: false,
+          index: false,
+        },
+      },
+    },
+    {
+      method: "GET",
+      path: "/gis",
+      options: { auth: false },
+      handler: (request, h) => {
+        return h.file("gis.html");
+      },
+    },
+    // {
+    //   method: "GET",
+    //   path: "/",
+    //   options: { auth: false },
+    //   handler: (request, h) => {
+    //     return h.file(path.join(__dirname, "views", "login.html"));
+    //   },
+    // },
+  ]);
+
+  // Setup autentikasi COOKIE
   server.auth.strategy("session", "cookie", {
     cookie: {
       name: "sid-example",
@@ -34,42 +79,10 @@ const init = async () => {
     },
   });
 
-  // Route static dari folder public
-  server.route([
-    {
-      method: "GET",
-      path: "/assets/{param*}",
-      handler: {
-        directory: {
-          path: ".",
-          listing: false,
-          index: false,
-        },
-      },
-    },
-    {
-      method: "GET",
-      path: "/uploads/{param*}",
-      handler: {
-        directory: {
-          path: "uploads",
-          listing: false,
-          index: false,
-        },
-      },
-    },
-  ]);
-
-  // Tambahkan route untuk serve file HTML dari folder views
-  server.route({
-    method: "GET",
-    path: "/gis",
-    handler: (request, h) => {
-      return h.file("gis.html"); // nama file di folder yang diatur di relativeTo
-    },
-  });
-
+  // Set default autentikasi hanya setelah semua route publik dibuat
   server.auth.default("session");
+
+  // Tambahkan route lain yang butuh autentikasi
   server.route([...authRoutes, ...dashboardRoutes]);
 
   await server.start();
